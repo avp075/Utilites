@@ -44,3 +44,5 @@ docker run  --name sonarqube -p 9000:9000 -e SONARQUBE_JDBC_USERNAME=sonar -e SO
 
 https://stackoverflow.com/questions/64210167/unable-to-connect-to-postgres-db-due-to-the-authentication-type-10-is-not-support
 https://stackoverflow.com/questions/30667130/sonarqube-is-under-maintenance
+
+root@7d5b7a61a5f2:/opt/sonarqube/logs#
