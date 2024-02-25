@@ -1,0 +1,41 @@
+
+export PS1='$(whoami):${PWD/*\//}# ' 
+192.168.0.59/24
+winget install --id Microsoft.Powershell --source winget
+PS C:\Users\Aviral> ssh osboxes@192.168.0.73
+
+PS C:\Users\Aviral> ssh osboxes@192.168.0.73
+
+postgres://sonar:admin@192.168.0.73:5432/sonarqube
+
+mvn clean verify sonar:sonar -Dsonar.projectKey=demo -Dsonar.projectName='demo' -Dsonar.host.url=http://192.168.0.73:9000 -Dsonar.token=sqp_0da063026c6f4d8409d3212c3a4fb08644557a5f	
+
+docker rmi -f $(docker images -aq)
+
+systemctl disable sonarqube ; systemctl stop sonarqube
+
+systemctl stop postgresql ; systemctl disable postgresql
+
+kill -9 $(lsof -ti :9000); docker stop $(docker ps -a -q) ; docker remove $(docker ps -a -q) 
+
+docker run -d --name sonarqube -p 9000:9000 sonarqube
+
+docker exec -it -u root sonarqube /bin/bash
+docker exec -it -u root sonarqube tail -f /opt/sonarqube/logs
+
+docker restart sonar-postgres
+
+docker run -it --name sonarqube \
+    -p 9000:9000 \
+    -e SONAR_JDBC_URL=jdbc:postgresql://192.168.0.73:5432/sonarqube \
+    -e SONAR_JDBC_USERNAME=sonar \
+    -e SONAR_JDBC_PASSWORD=admin \
+    sonarqube:lts-enterprise
+
+docker network create mynet
+	
+docker run -d --name sonar-postgres -e POSTGRES_USER=sonar -e POSTGRES_PASSWORD=sonar  -p 5432:5432 --net mynet postgres
+
+docker run  --name sonarqube -p 9000:9000 -e SONARQUBE_JDBC_USERNAME=sonar -e SONARQUBE_JDBC_PASSWORD=sonar -e SONARQUBE_JDBC_URL=jdbc:postgresql://192.168.0.73:5432/sonar -it --net mynet sonarqube:5.6
+
+https://stackoverflow.com/questions/64210167/unable-to-connect-to-postgres-db-due-to-the-authentication-type-10-is-not-support
