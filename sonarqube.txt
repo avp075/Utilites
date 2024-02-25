@@ -1,3 +1,4 @@
+https://www.youtube.com/watch?v=yDp0EuKUNWo&ab_channel=ChandraShekharReddy
 
 export PS1='$(whoami):${PWD/*\//}# ' 
 192.168.0.59/24
