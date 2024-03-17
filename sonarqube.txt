@@ -1,4 +1,9 @@
+override kubernetes secret using kustomize
+----------------------------------------------------------------------------------
+https://chat.openai.com/share/79aaaf3e-9626-4902-98cd-32ab38c4e45d
+
 https://www.youtube.com/watch?v=yDp0EuKUNWo&ab_channel=ChandraShekharReddy
+
 
 export PS1='$(whoami):${PWD/*\//}# ' 
 192.168.0.59/24
