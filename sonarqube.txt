@@ -2,6 +2,11 @@ override kubernetes secret using kustomize
 ----------------------------------------------------------------------------------
 https://chat.openai.com/share/79aaaf3e-9626-4902-98cd-32ab38c4e45d
 
+Sonarqube DB Password reset
+----------------------------------------------------------------------------------
+update users set crypted_password='100000$t2h8AtNs1AlCHuLobDjHQTn9XppwTIx88UjqUm4s8RsfTuXQHSd/fpFexAnewwPsO6jGFQUv/24DnO55hY6Xew==', salt='k9x9eN127/3e/hf38iNiKwVfaVk=', hash_method='PBKDF2', reset_password='true', user_local='true' where login='user';
+
+
 https://www.youtube.com/watch?v=yDp0EuKUNWo&ab_channel=ChandraShekharReddy
 
 
