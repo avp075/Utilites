@@ -1,0 +1,10 @@
+https://www.systemcodegeeks.com/virtualization/virtualbox/installing-minishift-windows-10-home/
+minishift oc-env
+SET PATH=C:\Users\Aviral\.minishift\cache\oc\v3.11.0\windows;%PATH%
+minishift start --vm-driver virtualbox
+minishift config set openshift-version v3.10.0
+minishift delete
+minishift start
+oc status
+oc login -u system:admin
+kubectl get pods --namespace=kube-system
