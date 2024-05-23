@@ -5,14 +5,28 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
-public class SonarQubeCreateGroup {
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
+public class SonarQubeAddPermissionTemplateToGroup {
     public static void main(String[] args) {
-        String apiUrl = "https://sonarqube.example.com/api/user_groups/create";
+        String apiUrl = "https://sonarqube.example.com/api/permissions/add_group_to_template";
         String token = "your_sonarqube_token";
-        String payload = "name=NewGroup&description=This%20is%20a%20new%20group";
+        
+        // Parameters
+        String groupName = "existing_group_name";  // Name of the group
+        String templateName = "permission_template_name";  // Name of the permission template
+        String permission = "admin";  // Permission to be added (e.g., "admin", "codeviewer", "issueadmin")
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpPost request = new HttpPost(apiUrl);
+
+            // URL encode the parameters
+            String payload = String.format("groupName=%s&templateName=%s&permission=%s",
+                    URLEncoder.encode(groupName, StandardCharsets.UTF_8),
+                    URLEncoder.encode(templateName, StandardCharsets.UTF_8),
+                    URLEncoder.encode(permission, StandardCharsets.UTF_8));
 
             // Set the Authorization header
             String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
