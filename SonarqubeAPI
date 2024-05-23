@@ -9,24 +9,24 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
-public class SonarQubeAddPermissionTemplateToGroup {
+public class SonarQubeCreatePermissionTemplate {
     public static void main(String[] args) {
-        String apiUrl = "https://sonarqube.example.com/api/permissions/add_group_to_template";
+        String apiUrl = "https://sonarqube.example.com/api/permissions/create_template";
         String token = "your_sonarqube_token";
         
-        // Parameters
-        String groupName = "existing_group_name";  // Name of the group
-        String templateName = "permission_template_name";  // Name of the permission template
-        String permission = "admin";  // Permission to be added (e.g., "admin", "codeviewer", "issueadmin")
+        // Parameters for the permission template
+        String templateName = "NewTemplateName";  // Name of the new permission template
+        String description = "This is a new permission template";  // Description of the permission template
+        String projectKeyPattern = ".*";  // Pattern to match project keys (optional)
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpPost request = new HttpPost(apiUrl);
 
             // URL encode the parameters
-            String payload = String.format("groupName=%s&templateName=%s&permission=%s",
-                    URLEncoder.encode(groupName, StandardCharsets.UTF_8),
+            String payload = String.format("name=%s&description=%s&projectKeyPattern=%s",
                     URLEncoder.encode(templateName, StandardCharsets.UTF_8),
-                    URLEncoder.encode(permission, StandardCharsets.UTF_8));
+                    URLEncoder.encode(description, StandardCharsets.UTF_8),
+                    URLEncoder.encode(projectKeyPattern, StandardCharsets.UTF_8));
 
             // Set the Authorization header
             String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
