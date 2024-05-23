@@ -1,0 +1,38 @@
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+
+public class SonarQubeCreateGroup {
+    public static void main(String[] args) {
+        String apiUrl = "https://sonarqube.example.com/api/user_groups/create";
+        String token = "your_sonarqube_token";
+        String payload = "name=NewGroup&description=This%20is%20a%20new%20group";
+
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            HttpPost request = new HttpPost(apiUrl);
+
+            // Set the Authorization header
+            String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
+            request.setHeader("Authorization", "Basic " + encodedAuth);
+            request.setHeader("Content-Type", "application/x-www-form-urlencoded");
+
+            // Set the payload
+            request.setEntity(new StringEntity(payload));
+
+            // Execute the request
+            HttpResponse response = httpClient.execute(request);
+            int responseCode = response.getStatusLine().getStatusCode();
+            System.out.println("Response Code: " + responseCode);
+
+            // Parse the response
+            String responseBody = EntityUtils.toString(response.getEntity());
+            System.out.println("Response: " + responseBody);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
