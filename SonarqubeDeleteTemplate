@@ -1,0 +1,118 @@
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.io.IOException;
+
+public class SonarQubeManagePermissionTemplate {
+    public static void main(String[] args) {
+        String apiUrl = "https://sonarqube.example.com/api/permissions/create_template";
+        String listTemplatesUrl = "https://sonarqube.example.com/api/permissions/search_templates";
+        String deleteTemplateUrl = "https://sonarqube.example.com/api/permissions/delete_template";
+        String token = "your_sonarqube_token";
+        
+        // Parameters
+        String name = "NewTemplate";  // Name of the permission template
+        String description = "A new permission template for testing";  // Description of the template
+
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+
+            // Check if the template already exists
+            String templateId = getTemplateId(httpClient, listTemplatesUrl, token, name);
+            if (templateId != null) {
+                System.out.println("Template already exists. Deleting the existing template.");
+                deleteTemplate(httpClient, deleteTemplateUrl, token, templateId);
+            }
+
+            // URL encode the parameters
+            String payload = String.format("name=%s&description=%s",
+                    URLEncoder.encode(name, StandardCharsets.UTF_8),
+                    URLEncoder.encode(description, StandardCharsets.UTF_8));
+
+            // Log the payload for debugging
+            System.out.println("Payload: " + payload);
+
+            // Ensure the payload is not null or empty
+            if (payload == null || payload.isEmpty()) {
+                throw new IllegalArgumentException("Payload cannot be null or empty");
+            }
+
+            // Set the Authorization header
+            String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
+            String authHeader = "Basic " + encodedAuth;
+
+            // Create the HttpPost request
+            HttpPost request = new HttpPost(apiUrl);
+            request.setHeader("Authorization", authHeader);
+            request.setHeader("Content-Type", "application/x-www-form-urlencoded");
+            request.setEntity(new StringEntity(payload));
+
+            // Send the request and get the response
+            HttpResponse response = httpClient.execute(request);
+
+            // Print the response code and body
+            System.out.println("Response Code: " + response.getStatusLine().getStatusCode());
+            String responseBody = EntityUtils.toString(response.getEntity());
+            System.out.println("Response: " + responseBody);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static String getTemplateId(CloseableHttpClient httpClient, String listTemplatesUrl, String token, String templateName) throws IOException {
+        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
+        String authHeader = "Basic " + encodedAuth;
+
+        HttpGet request = new HttpGet(listTemplatesUrl);
+        request.setHeader("Authorization", authHeader);
+
+        HttpResponse response = httpClient.execute(request);
+
+        if (response.getStatusLine().getStatusCode() != 200) {
+            throw new IOException("Failed to list templates: " + EntityUtils.toString(response.getEntity()));
+        }
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        JSONObject jsonResponse = new JSONObject(responseBody);
+        JSONArray templates = jsonResponse.getJSONArray("permissionTemplates");
+
+        for (int i = 0; i < templates.length(); i++) {
+            JSONObject template = templates.getJSONObject(i);
+            if (templateName.equals(template.getString("name"))) {
+                return template.getString("id");
+            }
+        }
+
+        return null;
+    }
+
+    private static void deleteTemplate(CloseableHttpClient httpClient, String deleteTemplateUrl, String token, String templateId) throws IOException {
+        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
+        String authHeader = "Basic " + encodedAuth;
+
+        // Construct the URL with the template ID
+        String urlWithParams = deleteTemplateUrl + "?id=" + URLEncoder.encode(templateId, StandardCharsets.UTF_8);
+
+        HttpDelete request = new HttpDelete(urlWithParams);
+        request.setHeader("Authorization", authHeader);
+
+        HttpResponse response = httpClient.execute(request);
+
+        if (response.getStatusLine().getStatusCode() != 204) {
+            throw new IOException("Failed to delete template: " + EntityUtils.toString(response.getEntity()));
+        }
+
+        System.out.println("Template deleted successfully.");
+    }
+}
