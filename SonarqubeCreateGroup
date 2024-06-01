@@ -15,12 +15,14 @@ import java.io.IOException;
 
 public class SonarQubeManageGroup {
     public static void main(String[] args) {
-        String apiUrl = "https://sonarqube.example.com/api/user_groups/create";
+        String createGroupUrl = "https://sonarqube.example.com/api/user_groups/create";
         String listGroupsUrl = "https://sonarqube.example.com/api/user_groups/search";
+        String addUserToGroupUrl = "https://sonarqube.example.com/api/user_groups/add_user";
         String token = "your_sonarqube_token";
-        
+
         // Parameters
         String groupName = "NewGroup";  // Name of the group
+        String[] users = {"user1", "user2", "user3"};  // Users to be added to the group
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
 
@@ -28,7 +30,12 @@ public class SonarQubeManageGroup {
             if (groupExists(httpClient, listGroupsUrl, token, groupName)) {
                 System.out.println("Group already exists.");
             } else {
-                createGroup(httpClient, apiUrl, token, groupName);
+                createGroup(httpClient, createGroupUrl, token, groupName);
+            }
+
+            // Add users to the group
+            for (String user : users) {
+                addUserToGroup(httpClient, addUserToGroupUrl, token, groupName, user);
             }
 
         } catch (IOException e) {
@@ -63,7 +70,7 @@ public class SonarQubeManageGroup {
         return false;
     }
 
-    private static void createGroup(CloseableHttpClient httpClient, String apiUrl, String token, String groupName) throws IOException {
+    private static void createGroup(CloseableHttpClient httpClient, String createGroupUrl, String token, String groupName) throws IOException {
         // URL encode the parameters
         String payload = String.format("name=%s",
                 URLEncoder.encode(groupName, StandardCharsets.UTF_8));
@@ -81,7 +88,40 @@ public class SonarQubeManageGroup {
         String authHeader = "Basic " + encodedAuth;
 
         // Create the HttpPost request
-        HttpPost request = new HttpPost(apiUrl);
+        HttpPost request = new HttpPost(createGroupUrl);
+        request.setHeader("Authorization", authHeader);
+        request.setHeader("Content-Type", "application/x-www-form-urlencoded");
+        request.setEntity(new StringEntity(payload));
+
+        // Send the request and get the response
+        HttpResponse response = httpClient.execute(request);
+
+        // Print the response code and body
+        System.out.println("Response Code: " + response.getStatusLine().getStatusCode());
+        String responseBody = EntityUtils.toString(response.getEntity());
+        System.out.println("Response: " + responseBody);
+    }
+
+    private static void addUserToGroup(CloseableHttpClient httpClient, String addUserToGroupUrl, String token, String groupName, String userName) throws IOException {
+        // URL encode the parameters
+        String payload = String.format("name=%s&login=%s",
+                URLEncoder.encode(groupName, StandardCharsets.UTF_8),
+                URLEncoder.encode(userName, StandardCharsets.UTF_8));
+
+        // Log the payload for debugging
+        System.out.println("Payload: " + payload);
+
+        // Ensure the payload is not null or empty
+        if (payload == null || payload.isEmpty()) {
+            throw new IllegalArgumentException("Payload cannot be null or empty");
+        }
+
+        // Set the Authorization header
+        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
+        String authHeader = "Basic " + encodedAuth;
+
+        // Create the HttpPost request
+        HttpPost request = new HttpPost(addUserToGroupUrl);
         request.setHeader("Authorization", authHeader);
         request.setHeader("Content-Type", "application/x-www-form-urlencoded");
         request.setEntity(new StringEntity(payload));
