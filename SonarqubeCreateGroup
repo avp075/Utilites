@@ -1,6 +1,4 @@
 
-
-
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -20,7 +18,8 @@ public class SonarQubeManageGroup {
     public static void main(String[] args) {
         String createGroupUrl = "https://sonarqube.example.com/api/user_groups/create";
         String listGroupsUrl = "https://sonarqube.example.com/api/user_groups/search";
-        String addUserToGroupUrl = "https://sonarqube.example.com/api/user_groups/add_user";
+        String addUserToGroupUrl = "https://sonarqube.example.com/api/v2/authorizations/group_memberships/add";
+        String listGroupMembersUrl = "https://sonarqube.example.com/api/user_groups/users";
         String token = "your_sonarqube_token";
 
         // Parameters
@@ -38,7 +37,11 @@ public class SonarQubeManageGroup {
 
             // Add users to the group
             for (String user : users) {
-                addUserToGroup(httpClient, addUserToGroupUrl, token, groupName, user);
+                if (!userExistsInGroup(httpClient, listGroupMembersUrl, token, groupName, user)) {
+                    addUserToGroup(httpClient, addUserToGroupUrl, token, groupName, user);
+                } else {
+                    System.out.println("User " + user + " is already in the group " + groupName);
+                }
             }
 
         } catch (IOException e) {
@@ -103,6 +106,37 @@ public class SonarQubeManageGroup {
         System.out.println("Response Code: " + response.getStatusLine().getStatusCode());
         String responseBody = EntityUtils.toString(response.getEntity());
         System.out.println("Response: " + responseBody);
+    }
+
+    private static boolean userExistsInGroup(CloseableHttpClient httpClient, String listGroupMembersUrl, String token, String groupName, String userName) throws IOException {
+        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
+        String authHeader = "Basic " + encodedAuth;
+
+        // Prepare the URL with the group name
+        String urlWithParams = String.format("%s?name=%s", listGroupMembersUrl,
+                URLEncoder.encode(groupName, StandardCharsets.UTF_8));
+
+        HttpGet request = new HttpGet(urlWithParams);
+        request.setHeader("Authorization", authHeader);
+
+        HttpResponse response = httpClient.execute(request);
+
+        if (response.getStatusLine().getStatusCode() != 200) {
+            throw new IOException("Failed to list group members: " + EntityUtils.toString(response.getEntity()));
+        }
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        JSONObject jsonResponse = new JSONObject(responseBody);
+        JSONArray users = jsonResponse.getJSONArray("users");
+
+        for (int i = 0; i < users.length(); i++) {
+            JSONObject user = users.getJSONObject(i);
+            if (userName.equals(user.getString("login"))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void addUserToGroup(CloseableHttpClient httpClient, String addUserToGroupUrl, String token, String groupName, String userName) throws IOException {
