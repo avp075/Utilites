@@ -1,3 +1,5 @@
+
+
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -13,77 +15,96 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.io.IOException;
 
-
-
-public class SonarQubeManagePermissionTemplate {
+public class SonarQubePermissionTemplate {
     public static void main(String[] args) {
-        String apiUrl = "https://sonarqube.example.com/api/permissions/create_template";
-        String listTemplatesUrl = "https://sonarqube.example.com/api/permissions/search_templates";
+        String createTemplateUrl = "https://sonarqube.example.com/api/permissions/create_template";
+        String setPermissionsUrl = "https://sonarqube.example.com/api/permissions/add_group_to_template";
+        String applyTemplateUrl = "https://sonarqube.example.com/api/permissions/apply_template";
         String token = "your_sonarqube_token";
 
         // Parameters
-        String templateName = "NewTemplate";  // Name of the permission template
+        String templateName = "NewPermissionTemplate";
+        String projectKey = "your_project_key";
+        String groupName = "your_group_name";
+        String permission = "codeviewer";  // Example permission, can be 'admin', 'codeviewer', 'issueadmin', etc.
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            // Create a permission template
+            createPermissionTemplate(httpClient, createTemplateUrl, token, templateName);
 
-            // Check if the permission template already exists
-            if (templateExists(httpClient, listTemplatesUrl, token, templateName)) {
-                System.out.println("Template already exists.");
-            } else {
-                createTemplate(httpClient, apiUrl, token, templateName);
-            }
+            // Set permissions for a group in the template
+            addGroupToTemplate(httpClient, setPermissionsUrl, token, templateName, groupName, permission);
+
+            // Apply the permission template to a project
+            applyTemplateToProject(httpClient, applyTemplateUrl, token, templateName, projectKey);
 
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static boolean templateExists(CloseableHttpClient httpClient, String listTemplatesUrl, String token, String templateName) throws IOException {
-        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
-        String authHeader = "Basic " + encodedAuth;
-
-        HttpGet request = new HttpGet(listTemplatesUrl);
-        request.setHeader("Authorization", authHeader);
-
-        HttpResponse response = httpClient.execute(request);
-
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to list templates: " + EntityUtils.toString(response.getEntity()));
-        }
-
-        String responseBody = EntityUtils.toString(response.getEntity());
-        JSONObject jsonResponse = new JSONObject(responseBody);
-        JSONArray templates = jsonResponse.getJSONArray("permissionTemplates");
-
-        for (int i = 0; i < templates.length(); i++) {
-            JSONObject template = templates.getJSONObject(i);
-            if (templateName.equals(template.getString("name"))) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static void createTemplate(CloseableHttpClient httpClient, String apiUrl, String token, String templateName) throws IOException {
+    private static void createPermissionTemplate(CloseableHttpClient httpClient, String createTemplateUrl, String token, String templateName) throws IOException {
         // URL encode the parameters
         String payload = String.format("name=%s",
                 URLEncoder.encode(templateName, StandardCharsets.UTF_8));
-
-        // Log the payload for debugging
-        System.out.println("Payload: " + payload);
-
-        // Ensure the payload is not null or empty
-        if (payload == null || payload.isEmpty()) {
-            throw new IllegalArgumentException("Payload cannot be null or empty");
-        }
 
         // Set the Authorization header
         String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
         String authHeader = "Basic " + encodedAuth;
 
         // Create the HttpPost request
-        HttpPost request = new HttpPost(apiUrl);
+        HttpPost request = new HttpPost(createTemplateUrl);
+        request.setHeader("Authorization", authHeader);
+        request.setHeader("Content-Type", "application/x-www-form-urlencoded");
+        request.setEntity(new StringEntity(payload));
+
+        // Send the request and get the response
+        HttpResponse response = httpClient.execute(request);
+
+        // Print the response code and body
+        System.out.println("Response Code: " + response.getStatusLine().getStatusCode());
+        String responseBody = EntityUtils.toString(response.getEntity());
+        System.out.println("Response: " + responseBody);
+    }
+
+    private static void addGroupToTemplate(CloseableHttpClient httpClient, String setPermissionsUrl, String token, String templateName, String groupName, String permission) throws IOException {
+        // URL encode the parameters
+        String payload = String.format("templateName=%s&groupName=%s&permission=%s",
+                URLEncoder.encode(templateName, StandardCharsets.UTF_8),
+                URLEncoder.encode(groupName, StandardCharsets.UTF_8),
+                URLEncoder.encode(permission, StandardCharsets.UTF_8));
+
+        // Set the Authorization header
+        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
+        String authHeader = "Basic " + encodedAuth;
+
+        // Create the HttpPost request
+        HttpPost request = new HttpPost(setPermissionsUrl);
+        request.setHeader("Authorization", authHeader);
+        request.setHeader("Content-Type", "application/x-www-form-urlencoded");
+        request.setEntity(new StringEntity(payload));
+
+        // Send the request and get the response
+        HttpResponse response = httpClient.execute(request);
+
+        // Print the response code and body
+        System.out.println("Response Code: " + response.getStatusLine().getStatusCode());
+        String responseBody = EntityUtils.toString(response.getEntity());
+        System.out.println("Response: " + responseBody);
+    }
+
+    private static void applyTemplateToProject(CloseableHttpClient httpClient, String applyTemplateUrl, String token, String templateName, String projectKey) throws IOException {
+        // URL encode the parameters
+        String payload = String.format("templateName=%s&projectKey=%s",
+                URLEncoder.encode(templateName, StandardCharsets.UTF_8),
+                URLEncoder.encode(projectKey, StandardCharsets.UTF_8));
+
+        // Set the Authorization header
+        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
+        String authHeader = "Basic " + encodedAuth;
+
+        // Create the HttpPost request
+        HttpPost request = new HttpPost(applyTemplateUrl);
         request.setHeader("Authorization", authHeader);
         request.setHeader("Content-Type", "application/x-www-form-urlencoded");
         request.setEntity(new StringEntity(payload));
