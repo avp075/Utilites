@@ -1,5 +1,3 @@
-
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -7,69 +5,95 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
-public class SonarQubePermissionTemplateCreator {
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.io.IOException;
 
-    private static final String SONARQUBE_URL = "http://your-sonarqube-url/api/permissions/template_definitions";
-    private static final String API_TOKEN = "your-api-token";
 
+
+public class SonarQubeManagePermissionTemplate {
     public static void main(String[] args) {
-        String templateName = "your-template-name";
+        String apiUrl = "https://sonarqube.example.com/api/permissions/create_template";
+        String listTemplatesUrl = "https://sonarqube.example.com/api/permissions/search_templates";
+        String token = "your_sonarqube_token";
 
-        // Check if template already exists
-        boolean templateExists = checkIfTemplateExists(templateName);
-        if (templateExists) {
-            System.out.println("Permission template '" + templateName + "' already exists.");
-        } else {
-            // Create new permission template
-            createPermissionTemplate(templateName);
-            System.out.println("Permission template '" + templateName + "' created successfully.");
+        // Parameters
+        String templateName = "NewTemplate";  // Name of the permission template
+
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+
+            // Check if the permission template already exists
+            if (templateExists(httpClient, listTemplatesUrl, token, templateName)) {
+                System.out.println("Template already exists.");
+            } else {
+                createTemplate(httpClient, apiUrl, token, templateName);
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
-    private static boolean checkIfTemplateExists(String templateName) {
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpGet request = new HttpGet(SONARQUBE_URL);
-            request.addHeader("Authorization", "Bearer " + API_TOKEN);
-            HttpResponse response = httpClient.execute(request);
-            HttpEntity entity = response.getEntity();
+    private static boolean templateExists(CloseableHttpClient httpClient, String listTemplatesUrl, String token, String templateName) throws IOException {
+        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
+        String authHeader = "Basic " + encodedAuth;
 
-            if (entity != null) {
-                String responseBody = EntityUtils.toString(entity);
-                JSONObject jsonResponse = new JSONObject(responseBody);
-                if (jsonResponse.has("permissions")) {
-                    JSONObject permissions = jsonResponse.getJSONObject("permissions");
-                    return permissions.has(templateName);
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+        HttpGet request = new HttpGet(listTemplatesUrl);
+        request.setHeader("Authorization", authHeader);
+
+        HttpResponse response = httpClient.execute(request);
+
+        if (response.getStatusLine().getStatusCode() != 200) {
+            throw new IOException("Failed to list templates: " + EntityUtils.toString(response.getEntity()));
         }
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        JSONObject jsonResponse = new JSONObject(responseBody);
+        JSONArray templates = jsonResponse.getJSONArray("permissionTemplates");
+
+        for (int i = 0; i < templates.length(); i++) {
+            JSONObject template = templates.getJSONObject(i);
+            if (templateName.equals(template.getString("name"))) {
+                return true;
+            }
+        }
+
         return false;
     }
 
-    private static void createPermissionTemplate(String templateName) {
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpPost request = new HttpPost(SONARQUBE_URL);
-            request.addHeader("Authorization", "Bearer " + API_TOKEN);
-            request.addHeader("Content-Type", "application/json");
+    private static void createTemplate(CloseableHttpClient httpClient, String apiUrl, String token, String templateName) throws IOException {
+        // URL encode the parameters
+        String payload = String.format("name=%s",
+                URLEncoder.encode(templateName, StandardCharsets.UTF_8));
 
-            JSONObject requestBody = new JSONObject();
-            requestBody.put("name", templateName);
-            requestBody.put("description", "Your template description here");
-            requestBody.put("projectKeyPattern", "your-project-key-pattern");
-            requestBody.put("template", true);
+        // Log the payload for debugging
+        System.out.println("Payload: " + payload);
 
-            request.setEntity(new StringEntity(requestBody.toString()));
-            HttpResponse response = httpClient.execute(request);
-
-            if (response.getStatusLine().getStatusCode() != 200) {
-                throw new RuntimeException("Failed to create permission template: " +
-                        response.getStatusLine().getReasonPhrase());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+        // Ensure the payload is not null or empty
+        if (payload == null || payload.isEmpty()) {
+            throw new IllegalArgumentException("Payload cannot be null or empty");
         }
+
+        // Set the Authorization header
+        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
+        String authHeader = "Basic " + encodedAuth;
+
+        // Create the HttpPost request
+        HttpPost request = new HttpPost(apiUrl);
+        request.setHeader("Authorization", authHeader);
+        request.setHeader("Content-Type", "application/x-www-form-urlencoded");
+        request.setEntity(new StringEntity(payload));
+
+        // Send the request and get the response
+        HttpResponse response = httpClient.execute(request);
+
+        // Print the response code and body
+        System.out.println("Response Code: " + response.getStatusLine().getStatusCode());
+        String responseBody = EntityUtils.toString(response.getEntity());
+        System.out.println("Response: " + responseBody);
     }
 }
