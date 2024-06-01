@@ -1,4 +1,3 @@
-
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -24,6 +23,7 @@ public class SonarQubeManagePermissionTemplate {
         // Parameters
         String templateName = "NewTemplate";  // Name of the permission template
         String groupName = "NewGroup";  // Name of the group
+        String permissions = "admin,issueadmin";  // Permissions to be added
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
 
@@ -44,7 +44,7 @@ public class SonarQubeManagePermissionTemplate {
             if (isTemplateAddedToGroup(httpClient, token, templateId, groupName)) {
                 System.out.println("Template already added to the group.");
             } else {
-                addTemplateToGroup(httpClient, apiUrl, token, templateId, groupName);
+                addTemplateToGroup(httpClient, apiUrl, token, templateId, groupName, permissions);
             }
 
         } catch (IOException e) {
@@ -134,11 +134,12 @@ public class SonarQubeManagePermissionTemplate {
         return false;
     }
 
-    private static void addTemplateToGroup(CloseableHttpClient httpClient, String apiUrl, String token, String templateId, String groupName) throws IOException {
+    private static void addTemplateToGroup(CloseableHttpClient httpClient, String apiUrl, String token, String templateId, String groupName, String permissions) throws IOException {
         // URL encode the parameters
-        String payload = String.format("groupName=%s&templateId=%s",
+        String payload = String.format("groupName=%s&templateId=%s&permissions=%s",
                 URLEncoder.encode(groupName, StandardCharsets.UTF_8),
-                URLEncoder.encode(templateId, StandardCharsets.UTF_8));
+                URLEncoder.encode(templateId, StandardCharsets.UTF_8),
+                URLEncoder.encode(permissions, StandardCharsets.UTF_8));
 
         // Log the payload for debugging
         System.out.println("Payload: " + payload);
