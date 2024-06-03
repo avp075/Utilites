@@ -1,5 +1,4 @@
 
-
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -21,6 +20,8 @@ public class SonarQubePermissionTemplate {
         String createTemplateUrl = "https://sonarqube.example.com/api/permissions/create_template";
         String addGroupToTemplateUrl = "https://sonarqube.example.com/api/permissions/add_group_to_template";
         String listGroupPermissionsUrl = "https://sonarqube.example.com/api/permissions/search_templates";
+        String listGroupsUrl = "https://sonarqube.example.com/api/user_groups/search";
+        String createGroupUrl = "https://sonarqube.example.com/api/user_groups/create";
         String token = "your_sonarqube_token";
 
         // Parameters
@@ -35,6 +36,11 @@ public class SonarQubePermissionTemplate {
                 System.out.println("Template already exists.");
             } else {
                 createPermissionTemplate(httpClient, createTemplateUrl, token, templateName, projectPattern);
+            }
+
+            // Check if the group exists
+            if (!groupExists(httpClient, listGroupsUrl, token, groupName)) {
+                createGroup(httpClient, createGroupUrl, token, groupName);
             }
 
             // Check if the group is already added to the template
@@ -88,6 +94,57 @@ public class SonarQubePermissionTemplate {
 
         // Create the HttpPost request
         HttpPost request = new HttpPost(createTemplateUrl);
+        request.setHeader("Authorization", authHeader);
+        request.setHeader("Content-Type", "application/x-www-form-urlencoded");
+        request.setEntity(new StringEntity(payload));
+
+        // Send the request and get the response
+        HttpResponse response = httpClient.execute(request);
+
+        // Print the response code and body
+        System.out.println("Response Code: " + response.getStatusLine().getStatusCode());
+        String responseBody = EntityUtils.toString(response.getEntity());
+        System.out.println("Response: " + responseBody);
+    }
+
+    private static boolean groupExists(CloseableHttpClient httpClient, String listGroupsUrl, String token, String groupName) throws IOException {
+        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
+        String authHeader = "Basic " + encodedAuth;
+
+        HttpGet request = new HttpGet(listGroupsUrl);
+        request.setHeader("Authorization", authHeader);
+
+        HttpResponse response = httpClient.execute(request);
+
+        if (response.getStatusLine().getStatusCode() != 200) {
+            throw new IOException("Failed to list groups: " + EntityUtils.toString(response.getEntity()));
+        }
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        JSONObject jsonResponse = new JSONObject(responseBody);
+        JSONArray groups = jsonResponse.getJSONArray("groups");
+
+        for (int i = 0; i < groups.length(); i++) {
+            JSONObject group = groups.getJSONObject(i);
+            if (groupName.equals(group.getString("name"))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void createGroup(CloseableHttpClient httpClient, String createGroupUrl, String token, String groupName) throws IOException {
+        // URL encode the parameters
+        String payload = String.format("name=%s",
+                URLEncoder.encode(groupName, StandardCharsets.UTF_8));
+
+        // Set the Authorization header
+        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
+        String authHeader = "Basic " + encodedAuth;
+
+        // Create the HttpPost request
+        HttpPost request = new HttpPost(createGroupUrl);
         request.setHeader("Authorization", authHeader);
         request.setHeader("Content-Type", "application/x-www-form-urlencoded");
         request.setEntity(new StringEntity(payload));
@@ -155,8 +212,4 @@ public class SonarQubePermissionTemplate {
         HttpResponse response = httpClient.execute(request);
 
         // Print the response code and body
-        System.out.println("Response Code: " + response.getStatusLine().getStatusCode());
-        String responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println("Response: " + responseBody);
-    }
-}
+        System.out.println("Response Code: " + response.getStatusLine
