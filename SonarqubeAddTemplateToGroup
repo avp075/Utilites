@@ -1,170 +1,94 @@
+
+
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 
-public class SonarQubeManagePermissionTemplate {
+public class SonarqubePermission {
+    private static final String SONARQUBE_URL = "http://your-sonarqube-instance/api";
+    private static final String API_KEY = "your-api-key";
+
     public static void main(String[] args) {
-        String apiUrl = "https://sonarqube.example.com/api/permissions/add_group_to_template";
-        String listTemplatesUrl = "https://sonarqube.example.com/api/permissions/search_templates";
-        String listGroupsUrl = "https://sonarqube.example.com/api/user_groups/search";
-        String token = "your_sonarqube_token";
+        HttpClient httpClient = HttpClients.createDefault();
 
-        // Parameters
-        String templateName = "NewTemplate";  // Name of the permission template
-        String groupName = "NewGroup";  // Name of the group
-        String permissions = "admin,issueadmin";  // Permissions to be added
+        // Add Group Permission Template with permissions
+        String[] permissions = {"user", "codeviewer", "issueadmin"};
+        addGroupPermissionTemplate(httpClient, "your-group-name", "template-name", permissions);
 
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+        // Check if group is already added
+        boolean isGroupAdded = isGroupAdded(httpClient, "your-group-name");
+        System.out.println("Is group already added: " + isGroupAdded);
+    }
 
-            // Check if the group already exists
-            if (!groupExists(httpClient, listGroupsUrl, token, groupName)) {
-                System.out.println("Group does not exist.");
-                return;
+    private static void addGroupPermissionTemplate(HttpClient httpClient, String groupName, String templateName, String[] permissions) {
+        try {
+            HttpPost httpPost = new HttpPost(SONARQUBE_URL + "/permissions/add_group");
+            httpPost.setHeader("Authorization", "Bearer " + API_KEY);
+
+            JSONObject requestBody = new JSONObject();
+            requestBody.put("groupName", groupName);
+            requestBody.put("templateName", templateName);
+
+            JSONArray permissionsArray = new JSONArray();
+            for (String permission : permissions) {
+                permissionsArray.put(permission);
             }
+            requestBody.put("permissions", permissionsArray);
 
-            // Check if the template already exists
-            String templateId = getTemplateId(httpClient, listTemplatesUrl, token, templateName);
-            if (templateId == null) {
-                System.out.println("Template does not exist.");
-                return;
-            }
+            StringEntity entity = new StringEntity(requestBody.toString());
+            httpPost.setEntity(entity);
+            httpPost.setHeader("Accept", "application/json");
+            httpPost.setHeader("Content-type", "application/json");
 
-            // Check if the template is already added to the group
-            if (isTemplateAddedToGroup(httpClient, token, templateId, groupName)) {
-                System.out.println("Template already added to the group.");
+            HttpResponse response = httpClient.execute(httpPost);
+            if (response.getStatusLine().getStatusCode() == 200) {
+                System.out.println("Group permission template added successfully.");
             } else {
-                addTemplateToGroup(httpClient, apiUrl, token, templateId, groupName, permissions);
+                System.err.println("Failed to add group permission template. Error: " + response.getStatusLine().getReasonPhrase());
             }
-
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static boolean groupExists(CloseableHttpClient httpClient, String listGroupsUrl, String token, String groupName) throws IOException {
-        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
-        String authHeader = "Basic " + encodedAuth;
+    private static boolean isGroupAdded(HttpClient httpClient, String groupName) {
+        try {
+            HttpGet httpGet = new HttpGet(SONARQUBE_URL + "/permissions/groups");
+            httpGet.setHeader("Authorization", "Bearer " + API_KEY);
+            HttpResponse response = httpClient.execute(httpGet);
 
-        HttpGet request = new HttpGet(listGroupsUrl);
-        request.setHeader("Authorization", authHeader);
-
-        HttpResponse response = httpClient.execute(request);
-
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to list groups: " + EntityUtils.toString(response.getEntity()));
-        }
-
-        String responseBody = EntityUtils.toString(response.getEntity());
-        JSONObject jsonResponse = new JSONObject(responseBody);
-        JSONArray groups = jsonResponse.getJSONArray("groups");
-
-        for (int i = 0; i < groups.length(); i++) {
-            JSONObject group = groups.getJSONObject(i);
-            if (groupName.equals(group.getString("name"))) {
-                return true;
+            if (response.getStatusLine().getStatusCode() == 200) {
+                HttpEntity entity = response.getEntity();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(entity.getContent()));
+                StringBuilder jsonResponse = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    jsonResponse.append(line);
+                }
+                JSONObject jsonObject = new JSONObject(jsonResponse.toString());
+                JSONArray groups = jsonObject.getJSONArray("groups");
+                for (int i = 0; i < groups.length(); i++) {
+                    JSONObject group = groups.getJSONObject(i);
+                    if (group.getString("name").equals(groupName)) {
+                        return true;
+                    }
+                }
+            } else {
+                System.err.println("Failed to retrieve groups. Error: " + response.getStatusLine().getReasonPhrase());
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-
         return false;
-    }
-
-    private static String getTemplateId(CloseableHttpClient httpClient, String listTemplatesUrl, String token, String templateName) throws IOException {
-        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
-        String authHeader = "Basic " + encodedAuth;
-
-        HttpGet request = new HttpGet(listTemplatesUrl);
-        request.setHeader("Authorization", authHeader);
-
-        HttpResponse response = httpClient.execute(request);
-
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to list templates: " + EntityUtils.toString(response.getEntity()));
-        }
-
-        String responseBody = EntityUtils.toString(response.getEntity());
-        JSONObject jsonResponse = new JSONObject(responseBody);
-        JSONArray templates = jsonResponse.getJSONArray("permissionTemplates");
-
-        for (int i = 0; i < templates.length(); i++) {
-            JSONObject template = templates.getJSONObject(i);
-            if (templateName.equals(template.getString("name"))) {
-                return template.getString("id");
-            }
-        }
-
-        return null;
-    }
-
-    private static boolean isTemplateAddedToGroup(CloseableHttpClient httpClient, String token, String templateId, String groupName) throws IOException {
-        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
-        String authHeader = "Basic " + encodedAuth;
-
-        String listGroupTemplatesUrl = "https://sonarqube.example.com/api/permissions/groups?templateId=" + URLEncoder.encode(templateId, StandardCharsets.UTF_8);
-        HttpGet request = new HttpGet(listGroupTemplatesUrl);
-        request.setHeader("Authorization", authHeader);
-
-        HttpResponse response = httpClient.execute(request);
-
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to list groups for template: " + EntityUtils.toString(response.getEntity()));
-        }
-
-        String responseBody = EntityUtils.toString(response.getEntity());
-        JSONObject jsonResponse = new JSONObject(responseBody);
-        JSONArray groups = jsonResponse.getJSONArray("groups");
-
-        for (int i = 0; i < groups.length(); i++) {
-            JSONObject group = groups.getJSONObject(i);
-            if (groupName.equals(group.getString("name"))) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static void addTemplateToGroup(CloseableHttpClient httpClient, String apiUrl, String token, String templateId, String groupName, String permissions) throws IOException {
-        // URL encode the parameters
-        String payload = String.format("groupName=%s&templateId=%s&permissions=%s",
-                URLEncoder.encode(groupName, StandardCharsets.UTF_8),
-                URLEncoder.encode(templateId, StandardCharsets.UTF_8),
-                URLEncoder.encode(permissions, StandardCharsets.UTF_8));
-
-        // Log the payload for debugging
-        System.out.println("Payload: " + payload);
-
-        // Ensure the payload is not null or empty
-        if (payload == null || payload.isEmpty()) {
-            throw new IllegalArgumentException("Payload cannot be null or empty");
-        }
-
-        // Set the Authorization header
-        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
-        String authHeader = "Basic " + encodedAuth;
-
-        // Create the HttpPost request
-        HttpPost request = new HttpPost(apiUrl);
-        request.setHeader("Authorization", authHeader);
-        request.setHeader("Content-Type", "application/x-www-form-urlencoded");
-        request.setEntity(new StringEntity(payload));
-
-        // Send the request and get the response
-        HttpResponse response = httpClient.execute(request);
-
-        // Print the response code and body
-        System.out.println("Response Code: " + response.getStatusLine().getStatusCode());
-        String responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println("Response: " + responseBody);
     }
 }
