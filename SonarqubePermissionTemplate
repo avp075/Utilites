@@ -14,12 +14,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.io.IOException;
 
+
 public class SonarQubePermissionTemplate {
     public static void main(String[] args) {
         String listTemplatesUrl = "https://sonarqube.example.com/api/permissions/search_templates";
         String createTemplateUrl = "https://sonarqube.example.com/api/permissions/create_template";
         String addGroupToTemplateUrl = "https://sonarqube.example.com/api/permissions/add_group_to_template";
-        String listGroupPermissionsUrl = "https://sonarqube.example.com/api/permissions/search_templates";
         String listGroupsUrl = "https://sonarqube.example.com/api/user_groups/search";
         String createGroupUrl = "https://sonarqube.example.com/api/user_groups/create";
         String token = "your_sonarqube_token";
@@ -212,4 +212,8 @@ public class SonarQubePermissionTemplate {
         HttpResponse response = httpClient.execute(request);
 
         // Print the response code and body
-        System.out.println("Response Code: " + response.getStatusLine
+        System.out.println("Response Code: " + response.getStatusLine().getStatusCode());
+        String responseBody = EntityUtils.toString(response.getEntity());
+        System.out.println("Response: " + responseBody);
+    }
+}
