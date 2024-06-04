@@ -24,7 +24,7 @@ public class SonarQubeGroupManagement {
 
         // Parameters
         String groupName = "NewGroup";
-        String[] users = {"external_user1", "external_user2"}; // External identity users
+        String[] ldapUsers = {"ldap_user1", "ldap_user2"}; // LDAP users
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             // Check if the group already exists
@@ -35,7 +35,7 @@ public class SonarQubeGroupManagement {
             }
 
             // Add users to the group
-            for (String user : users) {
+            for (String user : ldapUsers) {
                 if (userExists(httpClient, listUsersUrl, token, user)) {
                     if (userAlreadyInGroup(httpClient, listGroupUsersUrl, token, groupName, user)) {
                         System.out.println("User " + user + " is already in the group " + groupName + ".");
