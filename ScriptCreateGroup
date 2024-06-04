@@ -6,7 +6,7 @@ SONARQUBE_USER="admin"
 SONARQUBE_PASSWORD="admin"
 GROUP_NAME="your_group_name"
 GROUP_DESCRIPTION="Your Group Description"
-USERS=("user1" "user2" "user3")
+EXTERNAL_IDENTITIES=("externalId1" "externalId2" "externalId3")
 
 # Function to check if a group exists
 group_exists() {
@@ -20,18 +20,18 @@ create_group() {
     curl -su $SONARQUBE_USER:$SONARQUBE_PASSWORD -X POST "$SONARQUBE_URL/api/user_groups/create?name=$GROUP_NAME&description=$GROUP_DESCRIPTION"
 }
 
-# Function to check if a user exists
+# Function to check if a user exists by external identity
 user_exists() {
-    local username=$1
-    response=$(curl -su $SONARQUBE_USER:$SONARQUBE_PASSWORD -X GET "$SONARQUBE_URL/api/users/search?q=$username")
-    echo $response | grep -q "\"login\":\"$username\""
+    local external_identity=$1
+    response=$(curl -su $SONARQUBE_USER:$SONARQUBE_PASSWORD -X GET "$SONARQUBE_URL/api/users/search?q=$external_identity")
+    echo $response | grep -q "\"externalIdentity\":\"$external_identity\""
     return $?
 }
 
-# Function to add a user to a group
+# Function to add a user to a group by external identity
 add_user_to_group() {
-    local username=$1
-    curl -su $SONARQUBE_USER:$SONARQUBE_PASSWORD -X POST "$SONARQUBE_URL/api/user_groups/add_user?name=$GROUP_NAME&login=$username"
+    local external_identity=$1
+    curl -su $SONARQUBE_USER:$SONARQUBE_PASSWORD -X POST "$SONARQUBE_URL/api/user_groups/add_user?name=$GROUP_NAME&externalIdentity=$external_identity"
 }
 
 # Check if group exists, if not create it
@@ -42,12 +42,12 @@ else
     create_group
 fi
 
-# Loop through each user and add to the group if they exist
-for user in "${USERS[@]}"; do
-    if user_exists $user; then
-        echo "User $user exists. Adding to group $GROUP_NAME..."
-        add_user_to_group $user
+# Loop through each external identity and add to the group if they exist
+for external_identity in "${EXTERNAL_IDENTITIES[@]}"; do
+    if user_exists $external_identity; then
+        echo "User with externalIdentity $external_identity exists. Adding to group $GROUP_NAME..."
+        add_user_to_group $external_identity
     else
-        echo "User $user does not exist. Skipping..."
+        echo "User with externalIdentity $external_identity does not exist. Skipping..."
     fi
 done
