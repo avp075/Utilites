@@ -1,4 +1,3 @@
-
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -25,7 +24,7 @@ public class SonarQubeGroupManagement {
 
         // Parameters
         String groupName = "NewGroup";
-        String[] ldapUsersEmails = {"ldap_user1@example.com", "ldap_user2@example.com"}; // LDAP users' emails
+        String[] ldapUserExternalIds = {"external_id_1", "external_id_2"}; // LDAP users' external IDs
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             // Check if the group already exists
@@ -36,15 +35,15 @@ public class SonarQubeGroupManagement {
             }
 
             // Add users to the group
-            for (String email : ldapUsersEmails) {
-                if (userExists(httpClient, listUsersUrl, token, email)) {
-                    if (userAlreadyInGroup(httpClient, listGroupUsersUrl, token, groupName, email)) {
-                        System.out.println("User " + email + " is already in the group " + groupName + ".");
+            for (String externalId : ldapUserExternalIds) {
+                if (userExists(httpClient, listUsersUrl, token, externalId)) {
+                    if (userAlreadyInGroup(httpClient, listGroupUsersUrl, token, groupName, externalId)) {
+                        System.out.println("User with external ID " + externalId + " is already in the group " + groupName + ".");
                     } else {
-                        addUserToGroup(httpClient, addUserToGroupUrl, token, groupName, email);
+                        addUserToGroup(httpClient, addUserToGroupUrl, token, groupName, externalId);
                     }
                 } else {
-                    System.out.println("User " + email + " does not exist.");
+                    System.out.println("User with external ID " + externalId + " does not exist.");
                 }
             }
 
@@ -99,11 +98,11 @@ public class SonarQubeGroupManagement {
         System.out.println("Response: " + responseBody);
     }
 
-    private static boolean userExists(CloseableHttpClient httpClient, String listUsersUrl, String token, String email) throws IOException {
+    private static boolean userExists(CloseableHttpClient httpClient, String listUsersUrl, String token, String externalId) throws IOException {
         String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
         String authHeader = "Basic " + encodedAuth;
 
-        HttpGet request = new HttpGet(listUsersUrl + "?q=" + URLEncoder.encode(email, StandardCharsets.UTF_8));
+        HttpGet request = new HttpGet(listUsersUrl + "?q=" + URLEncoder.encode(externalId, StandardCharsets.UTF_8) + "&externalProvider=ldap");
         request.setHeader("Authorization", authHeader);
 
         HttpResponse response = httpClient.execute(request);
@@ -118,7 +117,7 @@ public class SonarQubeGroupManagement {
 
         for (int i = 0; i < users.length(); i++) {
             JSONObject user = users.getJSONObject(i);
-            if (email.equals(user.getString("email"))) {
+            if (externalId.equals(user.getString("externalIdentity"))) {
                 return true;
             }
         }
@@ -126,7 +125,7 @@ public class SonarQubeGroupManagement {
         return false;
     }
 
-    private static boolean userAlreadyInGroup(CloseableHttpClient httpClient, String listGroupUsersUrl, String token, String groupName, String email) throws IOException {
+    private static boolean userAlreadyInGroup(CloseableHttpClient httpClient, String listGroupUsersUrl, String token, String groupName, String externalId) throws IOException {
         String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
         String authHeader = "Basic " + encodedAuth;
 
@@ -145,7 +144,7 @@ public class SonarQubeGroupManagement {
 
         for (int i = 0; i < users.length(); i++) {
             JSONObject user = users.getJSONObject(i);
-            if (email.equals(user.getString("email"))) {
+            if (externalId.equals(user.getString("externalIdentity"))) {
                 return true;
             }
         }
@@ -153,10 +152,10 @@ public class SonarQubeGroupManagement {
         return false;
     }
 
-    private static void addUserToGroup(CloseableHttpClient httpClient, String addUserToGroupUrl, String token, String groupName, String email) throws IOException {
-        String payload = String.format("name=%s&login=%s",
+    private static void addUserToGroup(CloseableHttpClient httpClient, String addUserToGroupUrl, String token, String groupName, String externalId) throws IOException {
+        String payload = String.format("name=%s&login=%s&provider=ldap",
                 URLEncoder.encode(groupName, StandardCharsets.UTF_8),
-                URLEncoder.encode(email, StandardCharsets.UTF_8));
+                URLEncoder.encode(externalId, StandardCharsets.UTF_8));
 
         String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
         String authHeader = "Basic " + encodedAuth;
