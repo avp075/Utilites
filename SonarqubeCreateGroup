@@ -1,4 +1,17 @@
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.io.IOException;
 
 public class SonarQubeGroupManagement {
     public static void main(String[] args) {
@@ -7,11 +20,11 @@ public class SonarQubeGroupManagement {
         String listUsersUrl = "https://sonarqube.example.com/api/users/search";
         String listGroupUsersUrl = "https://sonarqube.example.com/api/user_groups/users";
         String addUserToGroupUrl = "https://sonarqube.example.com/api/user_groups/add_user";
-        String token = "your_sonarqube_token";
+        String token = "your_sonarqube_token"; // Token for authentication
 
         // Parameters
         String groupName = "NewGroup";
-        String[] users = {"user1", "user2"};
+        String[] users = {"external_user1", "external_user2"}; // External identity users
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             // Check if the group already exists
