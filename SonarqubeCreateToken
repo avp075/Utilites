@@ -1,4 +1,5 @@
 
+
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
@@ -17,9 +18,10 @@ public class SonarQubeTokenGeneration {
         String generateTokenUrl = "https://sonarqube.example.com/api/user_tokens/generate";
         String adminToken = "your_admin_token"; // Your SonarQube admin token
         String tokenName = "new_token_name"; // The name for the new token
+        String userLogin = "external_user_login"; // The login of the external user
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            String token = generateToken(httpClient, generateTokenUrl, adminToken, tokenName);
+            String token = generateToken(httpClient, generateTokenUrl, adminToken, tokenName, userLogin);
             if (token != null) {
                 System.out.println("Generated Token: " + token);
             } else {
@@ -30,8 +32,10 @@ public class SonarQubeTokenGeneration {
         }
     }
 
-    private static String generateToken(CloseableHttpClient httpClient, String generateTokenUrl, String adminToken, String tokenName) throws IOException {
-        String payload = String.format("name=%s", URLEncoder.encode(tokenName, StandardCharsets.UTF_8));
+    private static String generateToken(CloseableHttpClient httpClient, String generateTokenUrl, String adminToken, String tokenName, String userLogin) throws IOException {
+        String payload = String.format("name=%s&login=%s", 
+                URLEncoder.encode(tokenName, StandardCharsets.UTF_8), 
+                URLEncoder.encode(userLogin, StandardCharsets.UTF_8));
         String encodedAuth = Base64.getEncoder().encodeToString((adminToken + ":").getBytes(StandardCharsets.UTF_8));
         String authHeader = "Basic " + encodedAuth;
 
