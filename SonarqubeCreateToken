@@ -1,5 +1,3 @@
-
-
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
@@ -13,28 +11,40 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
-public class SonarQubeTokenGeneration {
+public class SonarQubeTokenToGitLab {
     public static void main(String[] args) {
-        String generateTokenUrl = "https://sonarqube.example.com/api/user_tokens/generate";
+        String sonarGenerateTokenUrl = "https://sonarqube.example.com/api/user_tokens/generate";
         String adminToken = "your_admin_token"; // Your SonarQube admin token
         String tokenName = "new_token_name"; // The name for the new token
         String userLogin = "external_user_login"; // The login of the external user
 
+        String gitlabApiUrl = "https://gitlab.example.com/api/v4/projects/PROJECT_ID/variables";
+        String gitlabPrivateToken = "your_gitlab_private_token"; // Your GitLab private token
+        String gitlabVariableKey = "SONAR_TOKEN"; // The CI/CD variable name in GitLab
+
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            String token = generateToken(httpClient, generateTokenUrl, adminToken, tokenName, userLogin);
-            if (token != null) {
-                System.out.println("Generated Token: " + token);
+            // Generate SonarQube token
+            String sonarToken = generateSonarToken(httpClient, sonarGenerateTokenUrl, adminToken, tokenName, userLogin);
+            if (sonarToken != null) {
+                System.out.println("Generated SonarQube Token: " + sonarToken);
+                // Add token to GitLab CI/CD variables
+                boolean result = addGitLabVariable(httpClient, gitlabApiUrl, gitlabPrivateToken, gitlabVariableKey, sonarToken);
+                if (result) {
+                    System.out.println("SonarQube token added to GitLab CI/CD variables successfully.");
+                } else {
+                    System.out.println("Failed to add SonarQube token to GitLab CI/CD variables.");
+                }
             } else {
-                System.out.println("Failed to generate token.");
+                System.out.println("Failed to generate SonarQube token.");
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static String generateToken(CloseableHttpClient httpClient, String generateTokenUrl, String adminToken, String tokenName, String userLogin) throws IOException {
-        String payload = String.format("name=%s&login=%s", 
-                URLEncoder.encode(tokenName, StandardCharsets.UTF_8), 
+    private static String generateSonarToken(CloseableHttpClient httpClient, String generateTokenUrl, String adminToken, String tokenName, String userLogin) throws IOException {
+        String payload = String.format("name=%s&login=%s",
+                URLEncoder.encode(tokenName, StandardCharsets.UTF_8),
                 URLEncoder.encode(userLogin, StandardCharsets.UTF_8));
         String encodedAuth = Base64.getEncoder().encodeToString((adminToken + ":").getBytes(StandardCharsets.UTF_8));
         String authHeader = "Basic " + encodedAuth;
@@ -55,6 +65,29 @@ public class SonarQubeTokenGeneration {
             System.out.println("Response Code: " + statusCode);
             System.out.println("Response: " + responseBody);
             return null;
+        }
+    }
+
+    private static boolean addGitLabVariable(CloseableHttpClient httpClient, String gitlabApiUrl, String gitlabPrivateToken, String key, String value) throws IOException {
+        JSONObject payload = new JSONObject();
+        payload.put("key", key);
+        payload.put("value", value);
+
+        HttpPost request = new HttpPost(gitlabApiUrl);
+        request.setHeader("PRIVATE-TOKEN", gitlabPrivateToken);
+        request.setHeader("Content-Type", "application/json");
+        request.setEntity(new StringEntity(payload.toString()));
+
+        HttpResponse response = httpClient.execute(request);
+        int statusCode = response.getStatusLine().getStatusCode();
+        String responseBody = EntityUtils.toString(response.getEntity());
+
+        if (statusCode == 201) { // Assuming 201 Created is the success status code
+            return true;
+        } else {
+            System.out.println("Response Code: " + statusCode);
+            System.out.println("Response: " + responseBody);
+            return false;
         }
     }
 }
