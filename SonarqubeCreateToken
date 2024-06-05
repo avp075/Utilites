@@ -1,0 +1,58 @@
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
+public class SonarQubeTokenGeneration {
+    public static void main(String[] args) {
+        String generateTokenUrl = "https://sonarqube.example.com/api/user_tokens/generate";
+        String username = "your_username"; // Your SonarQube username
+        String password = "your_password"; // Your SonarQube password
+        String tokenName = "new_token_name"; // The name for the new token
+
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            String token = generateToken(httpClient, generateTokenUrl, username, password, tokenName);
+            if (token != null) {
+                System.out.println("Generated Token: " + token);
+            } else {
+                System.out.println("Failed to generate token.");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static String generateToken(CloseableHttpClient httpClient, String generateTokenUrl, String username, String password, String tokenName) throws IOException {
+        String payload = String.format("name=%s", URLEncoder.encode(tokenName, StandardCharsets.UTF_8));
+        String auth = username + ":" + password;
+        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
+        String authHeader = "Basic " + encodedAuth;
+
+        HttpPost request = new HttpPost(generateTokenUrl);
+        request.setHeader("Authorization", authHeader);
+        request.setHeader("Content-Type", "application/x-www-form-urlencoded");
+        request.setEntity(new StringEntity(payload));
+
+        HttpResponse response = httpClient.execute(request);
+        int statusCode = response.getStatusLine().getStatusCode();
+        String responseBody = EntityUtils.toString(response.getEntity());
+
+        if (statusCode == 200) { // Assuming 200 OK is the success status code
+            JSONObject jsonResponse = new JSONObject(responseBody);
+            return jsonResponse.getString("token");
+        } else {
+            System.out.println("Response Code: " + statusCode);
+            System.out.println("Response: " + responseBody);
+            return null;
+        }
+    }
+}
+
