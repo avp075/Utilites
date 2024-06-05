@@ -8,18 +8,18 @@ import org.apache.http.util.EntityUtils;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 public class SonarQubeTokenGeneration {
     public static void main(String[] args) {
         String generateTokenUrl = "https://sonarqube.example.com/api/user_tokens/generate";
-        String username = "your_username"; // Your SonarQube username
-        String password = "your_password"; // Your SonarQube password
+        String adminToken = "your_admin_token"; // Your SonarQube admin token
         String tokenName = "new_token_name"; // The name for the new token
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            String token = generateToken(httpClient, generateTokenUrl, username, password, tokenName);
+            String token = generateToken(httpClient, generateTokenUrl, adminToken, tokenName);
             if (token != null) {
                 System.out.println("Generated Token: " + token);
             } else {
@@ -30,10 +30,9 @@ public class SonarQubeTokenGeneration {
         }
     }
 
-    private static String generateToken(CloseableHttpClient httpClient, String generateTokenUrl, String username, String password, String tokenName) throws IOException {
+    private static String generateToken(CloseableHttpClient httpClient, String generateTokenUrl, String adminToken, String tokenName) throws IOException {
         String payload = String.format("name=%s", URLEncoder.encode(tokenName, StandardCharsets.UTF_8));
-        String auth = username + ":" + password;
-        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
+        String encodedAuth = Base64.getEncoder().encodeToString((adminToken + ":").getBytes(StandardCharsets.UTF_8));
         String authHeader = "Basic " + encodedAuth;
 
         HttpPost request = new HttpPost(generateTokenUrl);
@@ -55,4 +54,3 @@ public class SonarQubeTokenGeneration {
         }
     }
 }
-
