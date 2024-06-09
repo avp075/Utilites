@@ -1,3 +1,4 @@
+
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -8,83 +9,67 @@ import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.io.IOException;
+import java.util.List;
+import java.util.ArrayList;
 
-public class SonarQubeGroupManagement {
+public class SonarQubeGroupAndUserManagement {
     public static void main(String[] args) {
-        String listGroupsUrl = "https://sonarqube.example.com/api/user_groups/search";
-        String createGroupUrl = "https://sonarqube.example.com/api/user_groups/create";
-        String listUsersUrl = "https://sonarqube.example.com/api/users/search";
-        String listGroupUsersUrl = "https://sonarqube.example.com/api/user_groups/users";
-        String addUserToGroupUrl = "https://sonarqube.example.com/api/user_groups/add_user";
-        String token = "your_sonarqube_token"; // Token for authentication
-
-        // Parameters
-        String groupName = "NewGroup";
-        String[] ldapUserExternalIds = {"external_id_1", "external_id_2"}; // LDAP users' external IDs
+        String sonarqubeUrl = "https://sonarqube.example.com";
+        String adminToken = "your_admin_token"; // Your SonarQube admin token
+        String groupName = "new_group_name"; // The name for the new group
+        List<String> userLogins = new ArrayList<>();
+        userLogins.add("external_user1"); // External user's login
+        userLogins.add("external_user2"); // Another external user's login
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            // Check if the group already exists
-            if (groupExists(httpClient, listGroupsUrl, token, groupName)) {
-                System.out.println("Group already exists.");
+            // Check if group exists, if not create it
+            if (!groupExists(httpClient, sonarqubeUrl, adminToken, groupName)) {
+                createGroup(httpClient, sonarqubeUrl, adminToken, groupName);
             } else {
-                createGroup(httpClient, createGroupUrl, token, groupName);
+                System.out.println("Group already exists: " + groupName);
             }
 
-            // Add users to the group
-            for (String externalId : ldapUserExternalIds) {
-                if (userExists(httpClient, listUsersUrl, token, externalId)) {
-                    if (userAlreadyInGroup(httpClient, listGroupUsersUrl, token, groupName, externalId)) {
-                        System.out.println("User with external ID " + externalId + " is already in the group " + groupName + ".");
-                    } else {
-                        addUserToGroup(httpClient, addUserToGroupUrl, token, groupName, externalId);
-                    }
+            // Add users to the group if they exist
+            for (String userLogin : userLogins) {
+                if (userExists(httpClient, sonarqubeUrl, adminToken, userLogin)) {
+                    addUserToGroup(httpClient, sonarqubeUrl, adminToken, groupName, userLogin);
                 } else {
-                    System.out.println("User with external ID " + externalId + " does not exist.");
+                    System.out.println("User " + userLogin + " does not exist.");
                 }
             }
-
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static boolean groupExists(CloseableHttpClient httpClient, String listGroupsUrl, String token, String groupName) throws IOException {
-        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
-        String authHeader = "Basic " + encodedAuth;
+    private static boolean groupExists(CloseableHttpClient httpClient, String sonarqubeUrl, String adminToken, String groupName) throws IOException {
+        String checkGroupUrl = sonarqubeUrl + "/api/user_groups/search?f=name&q=" + URLEncoder.encode(groupName, StandardCharsets.UTF_8);
+        String authHeader = "Basic " + Base64.getEncoder().encodeToString((adminToken + ":").getBytes(StandardCharsets.UTF_8));
 
-        HttpGet request = new HttpGet(listGroupsUrl);
+        HttpGet request = new HttpGet(checkGroupUrl);
         request.setHeader("Authorization", authHeader);
 
         HttpResponse response = httpClient.execute(request);
-
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to list groups: " + EntityUtils.toString(response.getEntity()));
-        }
-
         String responseBody = EntityUtils.toString(response.getEntity());
         JSONObject jsonResponse = new JSONObject(responseBody);
         JSONArray groups = jsonResponse.getJSONArray("groups");
 
         for (int i = 0; i < groups.length(); i++) {
-            JSONObject group = groups.getJSONObject(i);
-            if (groupName.equals(group.getString("name"))) {
+            if (groups.getJSONObject(i).getString("name").equals(groupName)) {
                 return true;
             }
         }
-
         return false;
     }
 
-    private static void createGroup(CloseableHttpClient httpClient, String createGroupUrl, String token, String groupName) throws IOException {
-        String payload = String.format("name=%s",
-                URLEncoder.encode(groupName, StandardCharsets.UTF_8));
-
-        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
-        String authHeader = "Basic " + encodedAuth;
+    private static void createGroup(CloseableHttpClient httpClient, String sonarqubeUrl, String adminToken, String groupName) throws IOException {
+        String createGroupUrl = sonarqubeUrl + "/api/user_groups/create";
+        String authHeader = "Basic " + Base64.getEncoder().encodeToString((adminToken + ":").getBytes(StandardCharsets.UTF_8));
+        String payload = String.format("name=%s", URLEncoder.encode(groupName, StandardCharsets.UTF_8));
 
         HttpPost request = new HttpPost(createGroupUrl);
         request.setHeader("Authorization", authHeader);
@@ -92,83 +77,50 @@ public class SonarQubeGroupManagement {
         request.setEntity(new StringEntity(payload));
 
         HttpResponse response = httpClient.execute(request);
-
-        System.out.println("Response Code: " + response.getStatusLine().getStatusCode());
-        String responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println("Response: " + responseBody);
+        if (response.getStatusLine().getStatusCode() != 200) {
+            System.out.println("Failed to create group: " + EntityUtils.toString(response.getEntity()));
+        } else {
+            System.out.println("Group created successfully: " + groupName);
+        }
     }
 
-    private static boolean userExists(CloseableHttpClient httpClient, String listUsersUrl, String token, String externalId) throws IOException {
-        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
-        String authHeader = "Basic " + encodedAuth;
+    private static boolean userExists(CloseableHttpClient httpClient, String sonarqubeUrl, String adminToken, String userLogin) throws IOException {
+        String checkUserUrl = sonarqubeUrl + "/api/users/search?q=" + URLEncoder.encode(userLogin, StandardCharsets.UTF_8);
+        String authHeader = "Basic " + Base64.getEncoder().encodeToString((adminToken + ":").getBytes(StandardCharsets.UTF_8));
 
-        HttpGet request = new HttpGet(listUsersUrl + "?q=" + URLEncoder.encode(externalId, StandardCharsets.UTF_8) + "&externalProvider=ldap");
+        HttpGet request = new HttpGet(checkUserUrl);
         request.setHeader("Authorization", authHeader);
 
         HttpResponse response = httpClient.execute(request);
-
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to list users: " + EntityUtils.toString(response.getEntity()));
-        }
-
         String responseBody = EntityUtils.toString(response.getEntity());
         JSONObject jsonResponse = new JSONObject(responseBody);
         JSONArray users = jsonResponse.getJSONArray("users");
 
         for (int i = 0; i < users.length(); i++) {
-            JSONObject user = users.getJSONObject(i);
-            if (externalId.equals(user.getString("externalIdentity"))) {
+            if (users.getJSONObject(i).getString("login").equals(userLogin)) {
                 return true;
             }
         }
-
         return false;
     }
 
-    private static boolean userAlreadyInGroup(CloseableHttpClient httpClient, String listGroupUsersUrl, String token, String groupName, String externalId) throws IOException {
-        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
-        String authHeader = "Basic " + encodedAuth;
-
-        HttpGet request = new HttpGet(listGroupUsersUrl + "?name=" + URLEncoder.encode(groupName, StandardCharsets.UTF_8));
-        request.setHeader("Authorization", authHeader);
-
-        HttpResponse response = httpClient.execute(request);
-
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to list group users: " + EntityUtils.toString(response.getEntity()));
-        }
-
-        String responseBody = EntityUtils.toString(response.getEntity());
-        JSONObject jsonResponse = new JSONObject(responseBody);
-        JSONArray users = jsonResponse.getJSONArray("users");
-
-        for (int i = 0; i < users.length(); i++) {
-            JSONObject user = users.getJSONObject(i);
-            if (externalId.equals(user.getString("externalIdentity"))) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static void addUserToGroup(CloseableHttpClient httpClient, String addUserToGroupUrl, String token, String groupName, String externalId) throws IOException {
-        String payload = String.format("name=%s&login=%s&provider=ldap",
+    private static void addUserToGroup(CloseableHttpClient httpClient, String sonarqubeUrl, String adminToken, String groupName, String userLogin) throws IOException {
+        String addUserUrl = sonarqubeUrl + "/api/user_groups/add_user";
+        String authHeader = "Basic " + Base64.getEncoder().encodeToString((adminToken + ":").getBytes(StandardCharsets.UTF_8));
+        String payload = String.format("name=%s&login=%s",
                 URLEncoder.encode(groupName, StandardCharsets.UTF_8),
-                URLEncoder.encode(externalId, StandardCharsets.UTF_8));
+                URLEncoder.encode(userLogin, StandardCharsets.UTF_8));
 
-        String encodedAuth = Base64.getEncoder().encodeToString((token + ":").getBytes());
-        String authHeader = "Basic " + encodedAuth;
-
-        HttpPost request = new HttpPost(addUserToGroupUrl);
+        HttpPost request = new HttpPost(addUserUrl);
         request.setHeader("Authorization", authHeader);
         request.setHeader("Content-Type", "application/x-www-form-urlencoded");
         request.setEntity(new StringEntity(payload));
 
         HttpResponse response = httpClient.execute(request);
-
-        System.out.println("Response Code: " + response.getStatusLine().getStatusCode());
-        String responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println("Response: " + responseBody);
+        if (response.getStatusLine().getStatusCode() != 200) {
+            System.out.println("Failed to add user to group: " + EntityUtils.toString(response.getEntity()));
+        } else {
+            System.out.println("User " + userLogin + " added to group " + groupName);
+        }
     }
 }
