@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# SonarQube details
+SONARQUBE_URL="http://your-sonarqube-url"
+SONARQUBE_TOKEN="your-sonarqube-token"
+GROUP_NAME="desired-group-name"
+USERS=("user1" "user2" "user3")
+
+# Function to check if a group exists
+check_group_exists() {
+  response=$(curl -s -u "$SONARQUBE_TOKEN:" "$SONARQUBE_URL/api/user_groups/search?f=name&q=$GROUP_NAME")
+  group_key=$(echo $response | jq -r ".groups[] | select(.name == \"$GROUP_NAME\") | .key")
+  
+  if [ "$group_key" != "" ]; then
+    echo "Group '$GROUP_NAME' already exists."
+    return 0
+  else
+    echo "Group '$GROUP_NAME' does not exist."
+    return 1
+  fi
+}
+
+# Function to create a group
+create_group() {
+  response=$(curl -s -u "$SONARQUBE_TOKEN:" -X POST "$SONARQUBE_URL/api/user_groups/create?name=$GROUP_NAME")
+  group_key=$(echo $response | jq -r ".group.key")
+  
+  if [ "$group_key" != "" ]; then
+    echo "Group '$GROUP_NAME' created successfully."
+    return 0
+  else
+    echo "Failed to create group '$GROUP_NAME'."
+    return 1
+  fi
+}
+
+# Function to check if a user exists
+check_user_exists() {
+  username=$1
+  response=$(curl -s -u "$SONARQUBE_TOKEN:" "$SONARQUBE_URL/api/users/search?q=$username")
+  user_exists=$(echo $response | jq -r ".users[] | select(.login == \"$username\") | .login")
+  
+  if [ "$user_exists" != "" ]; then
+    echo "User '$username' exists."
+    return 0
+  else
+    echo "User '$username' does not exist."
+    return 1
+  fi
+}
+
+# Function to add user to group
+add_user_to_group() {
+  username=$1
+  response=$(curl -s -u "$SONARQUBE_TOKEN:" -X POST "$SONARQUBE_URL/api/user_groups/add_user?name=$GROUP_NAME&login=$username")
+  
+  if [ "$response" == "" ]; then
+    echo "User '$username' added to group '$GROUP_NAME' successfully."
+  else
+    echo "Failed to add user '$username' to group '$GROUP_NAME'. Response: $response"
+  fi
+}
+
+# Main script execution
+if ! check_group_exists; then
+  create_group
+fi
+
+for user in "${USERS[@]}"; do
+  if check_user_exists "$user"; then
+    add_user_to_group "$user"
+  else
+    echo "Skipping adding '$user' to group '$GROUP_NAME' as the user does not exist."
+  fi
+done
