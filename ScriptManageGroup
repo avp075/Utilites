@@ -29,7 +29,7 @@ create_group() {
     echo "Group '$GROUP_NAME' created successfully."
     return 0
   else
-    echo "Failed to create group '$GROUP_NAME'."
+    echo "Failed to create group '$GROUP_NAME'. Response: $response"
     return 1
   fi
 }
@@ -45,6 +45,21 @@ check_user_exists() {
     return 0
   else
     echo "User '$username' does not exist."
+    return 1
+  fi
+}
+
+# Function to check if a user is in a group
+check_user_in_group() {
+  username=$1
+  response=$(curl -s -u "$SONARQUBE_TOKEN:" "$SONARQUBE_URL/api/user_groups/users?name=$GROUP_NAME&q=$username")
+  user_in_group=$(echo $response | jq -r ".users[] | select(.login == \"$username\") | .login")
+  
+  if [ "$user_in_group" != "" ]; then
+    echo "User '$username' is already in group '$GROUP_NAME'."
+    return 0
+  else
+    echo "User '$username' is not in group '$GROUP_NAME'."
     return 1
   fi
 }
@@ -68,7 +83,11 @@ fi
 
 for user in "${USERS[@]}"; do
   if check_user_exists "$user"; then
-    add_user_to_group "$user"
+    if ! check_user_in_group "$user"; then
+      add_user_to_group "$user"
+    else
+      echo "Skipping adding '$user' to group '$GROUP_NAME' as the user is already in the group."
+    fi
   else
     echo "Skipping adding '$user' to group '$GROUP_NAME' as the user does not exist."
   fi
