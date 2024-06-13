@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# SonarQube details
+SONARQUBE_URL="http://your-sonarqube-url"
+SONARQUBE_TOKEN="your-sonarqube-token"
+TEMPLATE_NAME="desired-template-name"
+GROUP_NAME="desired-group-name"
+PERMISSIONS=("admin" "codeviewer" "issueadmin") # List of permissions to add
+
+# Function to get the permission template ID
+get_template_id() {
+  response=$(curl -s -u "$SONARQUBE_TOKEN:" "$SONARQUBE_URL/api/permissions/search_templates?q=$TEMPLATE_NAME")
+  template_id=$(echo "$response" | jq -r ".permissionTemplates[] | select(.name == \"$TEMPLATE_NAME\") | .id")
+  echo "$template_id"
+}
+
+# Function to check if a group exists
+check_group_exists() {
+  response=$(curl -s -u "$SONARQUBE_TOKEN:" "$SONARQUBE_URL/api/user_groups/search?f=name&q=$GROUP_NAME")
+  group_exists=$(echo "$response" | jq -r ".groups[] | select(.name == \"$GROUP_NAME\") | .name")
+  
+  if [ "$group_exists" != "" ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Function to check if permission is already added to the group
+check_permission_exists() {
+  local template_id=$1
+  local permission=$2
+  response=$(curl -s -u "$SONARQUBE_TOKEN:" "$SONARQUBE_URL/api/permissions/search_templates?q=$TEMPLATE_NAME")
+  permission_exists=$(echo "$response" | jq -r ".permissionTemplates[] | select(.id == \"$template_id\") | .permissions[] | select(.permission == \"$permission\" and .groupName == \"$GROUP_NAME\") | .permission")
+
+  if [ "$permission_exists" != "" ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Function to add permission to a group
+add_permission_to_group() {
+  local template_id=$1
+  local permission=$2
+  response=$(curl -s -u "$SONARQUBE_TOKEN:" -X POST "$SONARQUBE_URL/api/permissions/add_group_to_template" -d "templateId=$template_id&groupName=$GROUP_NAME&permission=$permission")
+  
+  if [ "$response" == "" ]; then
+    echo "Permission '$permission' added to group '$GROUP_NAME' for template '$TEMPLATE_NAME'."
+  else
+    echo "Failed to add permission '$permission' to group '$GROUP_NAME'. Response: $response"
+  fi
+}
+
+# Main script execution
+template_id=$(get_template_id)
+
+if [ "$template_id" == "" ]; then
+  echo "Permission template '$TEMPLATE_NAME' not found."
+  exit 1
+fi
+
+if ! check_group_exists; then
+  echo "Group '$GROUP_NAME' does not exist."
+  exit 1
+fi
+
+for permission in "${PERMISSIONS[@]}"; do
+  if ! check_permission_exists "$template_id" "$permission"; then
+    add_permission_to_group "$template_id" "$permission"
+  else
+    echo "Permission '$permission' is already added to group '$GROUP_NAME' for template '$TEMPLATE_NAME'."
+  fi
+done
