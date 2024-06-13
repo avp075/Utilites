@@ -22,7 +22,7 @@ check_template_exists() {
 
 # Function to create a permission template
 create_template() {
-  response=$(curl -s -u "$SONARQUBE_TOKEN:" -X POST "$SONARQUBE_URL/api/permissions/create_template?name=$TEMPLATE_NAME&projectKeyPattern=$PROJECT_PATTERN")
+  response=$(curl -s -u "$SONARQUBE_TOKEN:" -X POST "$SONARQUBE_URL/api/permissions/create_template" -d "name=$TEMPLATE_NAME&projectKeyPattern=$PROJECT_PATTERN")
   template_id=$(echo $response | jq -r ".id")
   
   if [ "$template_id" != "" ]; then
