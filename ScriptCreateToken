@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# SonarQube details
+SONARQUBE_URL="http://your-sonarqube-url"
+SONARQUBE_TOKEN="your-sonarqube-token"
+USERNAME="your-username"    # User for whom the token is to be created
+TOKEN_NAME="desired-token-name"
+
+# Function to check if a token exists
+check_token_exists() {
+  response=$(curl -s -u "$SONARQUBE_TOKEN:" "$SONARQUBE_URL/api/user_tokens/search?login=$USERNAME")
+  token_exists=$(echo "$response" | jq -r ".userTokens[] | select(.name == \"$TOKEN_NAME\") | .name")
+
+  if [ "$token_exists" != "" ]; then
+    echo "Token '$TOKEN_NAME' already exists for user '$USERNAME'."
+    return 0
+  else
+    echo "Token '$TOKEN_NAME' does not exist for user '$USERNAME'."
+    return 1
+  fi
+}
+
+# Function to create a token
+create_token() {
+  response=$(curl -s -u "$SONARQUBE_TOKEN:" -X POST "$SONARQUBE_URL/api/user_tokens/generate" -d "name=$TOKEN_NAME&login=$USERNAME")
+  token=$(echo "$response" | jq -r ".token")
+
+  if [ "$token" != "" ] && [ "$token" != "null" ]; then
+    echo "Token '$TOKEN_NAME' created successfully for user '$USERNAME'. Token: $token"
+    return 0
+  else
+    echo "Failed to create token '$TOKEN_NAME' for user '$USERNAME'. Response: $response"
+    return 1
+  fi
+}
+
+# Main script execution
+if ! check_token_exists; then
+  create_token
+else
+  echo "Skipping creation as the token '$TOKEN_NAME' already exists for user '$USERNAME'."
+fi
