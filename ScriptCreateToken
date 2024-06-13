@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # SonarQube details
@@ -6,8 +7,14 @@ SONARQUBE_TOKEN="your-sonarqube-token"
 USERNAME="your-username"    # User for whom the token is to be created
 TOKEN_NAME="desired-token-name"
 
-# Function to check if a token exists
-check_token_exists() {
+# GitLab details
+GITLAB_URL="http://your-gitlab-url"
+GITLAB_TOKEN="your-gitlab-token"
+GITLAB_PROJECT_ID="your-gitlab-project-id"
+GITLAB_CI_VARIABLE_NAME="SONARQUBE_TOKEN"
+
+# Function to check if a SonarQube token exists
+check_sonarqube_token_exists() {
   response=$(curl -s -u "$SONARQUBE_TOKEN:" "$SONARQUBE_URL/api/user_tokens/search?login=$USERNAME")
   token_exists=$(echo "$response" | jq -r ".userTokens[] | select(.name == \"$TOKEN_NAME\") | .name")
 
@@ -20,13 +27,14 @@ check_token_exists() {
   fi
 }
 
-# Function to create a token
-create_token() {
+# Function to create a SonarQube token
+create_sonarqube_token() {
   response=$(curl -s -u "$SONARQUBE_TOKEN:" -X POST "$SONARQUBE_URL/api/user_tokens/generate" -d "name=$TOKEN_NAME&login=$USERNAME")
   token=$(echo "$response" | jq -r ".token")
 
   if [ "$token" != "" ] && [ "$token" != "null" ]; then
-    echo "Token '$TOKEN_NAME' created successfully for user '$USERNAME'. Token: $token"
+    echo "Token '$TOKEN_NAME' created successfully for user '$USERNAME'."
+    echo "$token"
     return 0
   else
     echo "Failed to create token '$TOKEN_NAME' for user '$USERNAME'. Response: $response"
@@ -34,9 +42,52 @@ create_token() {
   fi
 }
 
+# Function to check if a GitLab CI/CD variable exists
+check_gitlab_variable_exists() {
+  response=$(curl -s --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "$GITLAB_URL/api/v4/projects/$GITLAB_PROJECT_ID/variables")
+  variable_exists=$(echo "$response" | jq -r ".[] | select(.key == \"$GITLAB_CI_VARIABLE_NAME\") | .key")
+
+  if [ "$variable_exists" != "" ]; then
+    echo "GitLab CI/CD variable '$GITLAB_CI_VARIABLE_NAME' already exists."
+    return 0
+  else
+    echo "GitLab CI/CD variable '$GITLAB_CI_VARIABLE_NAME' does not exist."
+    return 1
+  fi
+}
+
+# Function to add a GitLab CI/CD variable
+add_gitlab_variable() {
+  local token=$1
+  response=$(curl -s --request POST --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+    --form "key=$GITLAB_CI_VARIABLE_NAME" \
+    --form "value=$token" \
+    "$GITLAB_URL/api/v4/projects/$GITLAB_PROJECT_ID/variables")
+
+  if echo "$response" | jq -e .key > /dev/null; then
+    echo "GitLab CI/CD variable '$GITLAB_CI_VARIABLE_NAME' added successfully."
+    return 0
+  else
+    echo "Failed to add GitLab CI/CD variable '$GITLAB_CI_VARIABLE_NAME'. Response: $response"
+    return 1
+  fi
+}
+
 # Main script execution
-if ! check_token_exists; then
-  create_token
+if ! check_sonarqube_token_exists; then
+  token=$(create_sonarqube_token)
+  if [ $? -ne 0 ]; then
+    echo "Error creating SonarQube token."
+    exit 1
+  fi
 else
-  echo "Skipping creation as the token '$TOKEN_NAME' already exists for user '$USERNAME'."
+  # Retrieve existing token if required (depends on your setup)
+  echo "Token already exists, using the existing token."
+  token=$(curl -s -u "$SONARQUBE_TOKEN:" "$SONARQUBE_URL/api/user_tokens/search?login=$USERNAME" | jq -r ".userTokens[] | select(.name == \"$TOKEN_NAME\") | .token")
+fi
+
+if ! check_gitlab_variable_exists; then
+  add_gitlab_variable "$token"
+else
+  echo "Skipping adding GitLab CI/CD variable as it already exists."
 fi
