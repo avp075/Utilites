@@ -9,8 +9,8 @@ PROJECT_PATTERN="desired-project-pattern"
 # Function to check if a permission template exists
 check_template_exists() {
   response=$(curl -s -u "$SONARQUBE_TOKEN:" "$SONARQUBE_URL/api/permissions/search_templates?q=$TEMPLATE_NAME")
-  template_exists=$(echo $response | jq -r ".permissionTemplates[] | select(.name == \"$TEMPLATE_NAME\") | .id")
-  
+  template_exists=$(echo "$response" | jq -r ".permissionTemplates[] | select(.name == \"$TEMPLATE_NAME\") | .id")
+
   if [ "$template_exists" != "" ]; then
     echo "Permission template '$TEMPLATE_NAME' already exists."
     return 0
@@ -23,9 +23,9 @@ check_template_exists() {
 # Function to create a permission template
 create_template() {
   response=$(curl -s -u "$SONARQUBE_TOKEN:" -X POST "$SONARQUBE_URL/api/permissions/create_template" -d "name=$TEMPLATE_NAME&projectKeyPattern=$PROJECT_PATTERN")
-  template_id=$(echo $response | jq -r ".id")
-  
-  if [ "$template_id" != "" ]; then
+  template_id=$(echo "$response" | jq -r ".template.id")
+
+  if [ "$template_id" != "" ] && [ "$template_id" != "null" ]; then
     echo "Permission template '$TEMPLATE_NAME' created successfully with ID '$template_id'."
     return 0
   else
