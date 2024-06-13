@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# SonarQube details
+SONARQUBE_URL="http://your-sonarqube-url"
+SONARQUBE_TOKEN="your-sonarqube-token"
+TEMPLATE_NAME="desired-template-name"
+PROJECT_PATTERN="desired-project-pattern"
+
+# Function to check if a permission template exists
+check_template_exists() {
+  response=$(curl -s -u "$SONARQUBE_TOKEN:" "$SONARQUBE_URL/api/permissions/search_templates?q=$TEMPLATE_NAME")
+  template_exists=$(echo $response | jq -r ".permissionTemplates[] | select(.name == \"$TEMPLATE_NAME\") | .id")
+  
+  if [ "$template_exists" != "" ]; then
+    echo "Permission template '$TEMPLATE_NAME' already exists."
+    return 0
+  else
+    echo "Permission template '$TEMPLATE_NAME' does not exist."
+    return 1
+  fi
+}
+
+# Function to create a permission template
+create_template() {
+  response=$(curl -s -u "$SONARQUBE_TOKEN:" -X POST "$SONARQUBE_URL/api/permissions/create_template?name=$TEMPLATE_NAME&projectKeyPattern=$PROJECT_PATTERN")
+  template_id=$(echo $response | jq -r ".id")
+  
+  if [ "$template_id" != "" ]; then
+    echo "Permission template '$TEMPLATE_NAME' created successfully with ID '$template_id'."
+    return 0
+  else
+    echo "Failed to create permission template '$TEMPLATE_NAME'. Response: $response"
+    return 1
+  fi
+}
+
+# Main script execution
+if ! check_template_exists; then
+  create_template
+else
+  echo "Skipping creation as the permission template '$TEMPLATE_NAME' already exists."
+fi
