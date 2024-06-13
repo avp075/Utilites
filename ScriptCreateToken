@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 # SonarQube details
@@ -81,8 +80,7 @@ if ! check_sonarqube_token_exists; then
     exit 1
   fi
 else
-  # Retrieve existing token if required (depends on your setup)
-  echo "Token already exists, using the existing token."
+  # Retrieve the token if it already exists
   token=$(curl -s -u "$SONARQUBE_TOKEN:" "$SONARQUBE_URL/api/user_tokens/search?login=$USERNAME" | jq -r ".userTokens[] | select(.name == \"$TOKEN_NAME\") | .token")
 fi
 
