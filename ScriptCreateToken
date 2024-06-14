@@ -1,30 +1,11 @@
 #!/bin/bash
 
-# SonarQube and GitLab configurations
-SONARQUBE_URL="http://your-sonarqube-server"
-SONARQUBE_USER="your-sonarqube-username"
-SONARQUBE_PASS="your-sonarqube-password"
-TOKEN_NAME="your-token-name"
-
+# GitLab configurations
 GITLAB_URL="http://your-gitlab-server"
 GITLAB_PROJECT_ID="your-gitlab-project-id"
 GITLAB_API_TOKEN="your-gitlab-api-token"
-GITLAB_VARIABLE_NAME="SONARQUBE_TOKEN"
-
-# Function to create a SonarQube token
-create_sonarqube_token() {
-    curl -u $SONARQUBE_USER:$SONARQUBE_PASS -X POST "$SONARQUBE_URL/api/user_tokens/generate" -d "name=$TOKEN_NAME" | jq -r '.token'
-}
-
-# Function to check if a SonarQube token exists
-check_sonarqube_token() {
-    curl -u $SONARQUBE_USER:$SONARQUBE_PASS -X GET "$SONARQUBE_URL/api/user_tokens/search" | jq -r --arg TOKEN_NAME "$TOKEN_NAME" '.userTokens[] | select(.name == $TOKEN_NAME) | .name'
-}
-
-# Function to delete a SonarQube token
-delete_sonarqube_token() {
-    curl -u $SONARQUBE_USER:$SONARQUBE_PASS -X POST "$SONARQUBE_URL/api/user_tokens/revoke" -d "name=$TOKEN_NAME"
-}
+GITLAB_VARIABLE_NAME="DUMMY_TOKEN"
+DUMMY_TOKEN_VALUE="dummy-token-value"
 
 # Function to check if a GitLab CI/CD variable exists
 check_gitlab_variable() {
@@ -44,17 +25,6 @@ add_gitlab_variable() {
         --form "value=$token_value"
 }
 
-# Check and delete existing SonarQube token
-existing_token=$(check_sonarqube_token)
-if [ "$existing_token" == "$TOKEN_NAME" ]; then
-    echo "Token $TOKEN_NAME already exists in SonarQube. Deleting..."
-    delete_sonarqube_token
-fi
-
-# Create new SonarQube token
-new_token=$(create_sonarqube_token)
-echo "New SonarQube token created: $new_token"
-
 # Check and delete existing GitLab CI/CD variable
 existing_variable=$(check_gitlab_variable)
 if [ "$existing_variable" == "$GITLAB_VARIABLE_NAME" ]; then
@@ -63,5 +33,5 @@ if [ "$existing_variable" == "$GITLAB_VARIABLE_NAME" ]; then
 fi
 
 # Add new GitLab CI/CD variable
-add_gitlab_variable $new_token
-echo "New GitLab CI/CD variable $GITLAB_VARIABLE_NAME added with the SonarQube token."
+add_gitlab_variable $DUMMY_TOKEN_VALUE
+echo "New GitLab CI/CD variable $GITLAB_VARIABLE_NAME added with the dummy token value."
