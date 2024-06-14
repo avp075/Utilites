@@ -1,37 +1,51 @@
+
 #!/bin/bash
 
-# GitLab configurations
-GITLAB_URL="http://your-gitlab-server"
+# Set variables
+SONARQUBE_URL="http://your-sonarqube-instance"
+SONARQUBE_USER="your-sonarqube-user"
+SONARQUBE_PASSWORD="your-sonarqube-password"
+SONARQUBE_TOKEN_NAME="your-token-name"
+
+GITLAB_URL="http://your-gitlab-instance"
 GITLAB_PROJECT_ID="your-gitlab-project-id"
 GITLAB_API_TOKEN="your-gitlab-api-token"
-GITLAB_VARIABLE_NAME="DUMMY_TOKEN"
-DUMMY_TOKEN_VALUE="dummy-token-value"
+GITLAB_VARIABLE_KEY="SONAR_TOKEN"
 
-# Function to check if a GitLab CI/CD variable exists
-check_gitlab_variable() {
-    curl --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" -X GET "$GITLAB_URL/api/v4/projects/$GITLAB_PROJECT_ID/variables" | jq -r --arg GITLAB_VARIABLE_NAME "$GITLAB_VARIABLE_NAME" '.[] | select(.key == $GITLAB_VARIABLE_NAME) | .key'
+# Function to create a SonarQube token
+create_sonar_token() {
+  curl -u "${SONARQUBE_USER}:${SONARQUBE_PASSWORD}" -X POST "${SONARQUBE_URL}/api/user_tokens/generate" -d "name=${SONARQUBE_TOKEN_NAME}" | jq -r .token
 }
 
-# Function to delete a GitLab CI/CD variable
-delete_gitlab_variable() {
-    curl --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" -X DELETE "$GITLAB_URL/api/v4/projects/$GITLAB_PROJECT_ID/variables/$GITLAB_VARIABLE_NAME"
+# Function to check if a SonarQube token exists and delete it if it does
+delete_sonar_token_if_exists() {
+  local token_exists=$(curl -u "${SONARQUBE_USER}:${SONARQUBE_PASSWORD}" -X GET "${SONARQUBE_URL}/api/user_tokens/search" | jq -r --arg TOKEN_NAME "${SONARQUBE_TOKEN_NAME}" '.userTokens[] | select(.name==$TOKEN_NAME) | .name')
+  
+  if [[ ! -z "$token_exists" ]]; then
+    curl -u "${SONARQUBE_USER}:${SONARQUBE_PASSWORD}" -X POST "${SONARQUBE_URL}/api/user_tokens/revoke" -d "name=${SONARQUBE_TOKEN_NAME}"
+  fi
 }
 
 # Function to add a GitLab CI/CD variable
 add_gitlab_variable() {
-    local token_value=$1
-    curl --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" -X POST "$GITLAB_URL/api/v4/projects/$GITLAB_PROJECT_ID/variables" \
-        --form "key=$GITLAB_VARIABLE_NAME" \
-        --form "value=$token_value"
+  local sonar_token=$1
+  curl --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" -X POST "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/variables" -d "key=${GITLAB_VARIABLE_KEY}" -d "value=${sonar_token}"
 }
 
-# Check and delete existing GitLab CI/CD variable
-existing_variable=$(check_gitlab_variable)
-if [ "$existing_variable" == "$GITLAB_VARIABLE_NAME" ]; then
-    echo "Variable $GITLAB_VARIABLE_NAME already exists in GitLab. Deleting..."
-    delete_gitlab_variable
-fi
+# Function to check if a GitLab CI/CD variable exists and delete it if it does
+delete_gitlab_variable_if_exists() {
+  local variable_exists=$(curl --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" -X GET "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/variables" | jq -r --arg VAR_KEY "${GITLAB_VARIABLE_KEY}" '.[] | select(.key==$VAR_KEY) | .key')
+  
+  if [[ ! -z "$variable_exists" ]]; then
+    curl --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" -X DELETE "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/variables/${GITLAB_VARIABLE_KEY}"
+  fi
+}
 
-# Add new GitLab CI/CD variable
-add_gitlab_variable $DUMMY_TOKEN_VALUE
-echo "New GitLab CI/CD variable $GITLAB_VARIABLE_NAME added with the dummy token value."
+# Main script
+delete_sonar_token_if_exists
+sonar_token=$(create_sonar_token)
+
+delete_gitlab_variable_if_exists
+add_gitlab_variable "$sonar_token"
+
+echo "SonarQube token and GitLab CI/CD variable have been created and updated successfully."
