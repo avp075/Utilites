@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: git-devops-dev
+  name: argo-secret-access
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argo-secret-access-binding
+  namespace: git-devops-dev
+subjects:
+- kind: ServiceAccount
+  name: argo
+  namespace: git-devops-dev
+roleRef:
+  kind: Role
+  name: argo-secret-access
+  apiGroup: rbac.authorization.k8s.io
